@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[requires]
+python_version = "3.8"
+
+[packages]
+requests = "*"
+flask = "*"
+flask-restful = "*"
+python-dotenv = "*"
+tweepy = "*"
+python-telegram-bot = "*"
+psycopg2 = "*"
+
+[dev-packages]
+
+[pipenv]
+allow_prereleases = true
