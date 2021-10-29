@@ -11,4 +11,5 @@ TW_BEARER_TOKEN: str = os.getenv("TW_BEARER_TOKEN")
 TW_ACCESS_TOKEN: str = os.getenv("TW_ACCESS_TOKEN")
 TW_ACCESS_TOKEN_SECRET: str = os.getenv("TW_ACCESS_TOKEN_SECRET")
 
-API_BASE: str = os.getenv("DB_API_BASE", "http://localhost:5000")
+DB_API_HOST: str = os.getenv("DB_API_HOST") or "127.0.0.1"
+DB_API_PORT: int = int(os.getenv("DB_API_PORT") or 5000)

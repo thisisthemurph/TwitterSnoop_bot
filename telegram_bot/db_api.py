@@ -1,5 +1,10 @@
 import requests
-from constants import API_BASE
+
+from constants import DB_API_HOST, DB_API_PORT
+
+
+DB_API_BASE = f"http://{DB_API_HOST}:{DB_API_PORT}"
+
 
 def watch_handle(handle: str, chat_id: str):
     """
@@ -10,7 +15,7 @@ def watch_handle(handle: str, chat_id: str):
         chat_id (str): the chat_id to watch the handle
     """
     try:
-        response = requests.post(f"{API_BASE}/handle/{handle}/watch/{chat_id}")
+        response = requests.post(f"{DB_API_BASE}/handle/{handle}/watch/{chat_id}")
         return response.json()
     except requests.ConnectionError:
         return None
@@ -24,7 +29,7 @@ def delete_watch(handle: str, chat_id: str):
         handle (str): the Twitter handle
         chat_id (str): the Telegram chat ID
     """
-    response = requests.delete(f"{API_BASE}/handle/{handle}/watch/{chat_id}")
+    response = requests.delete(f"{DB_API_BASE}/handle/{handle}/watch/{chat_id}")
     return response.json()
 
 
@@ -36,7 +41,7 @@ def fetch_watched_handles(chat_id: str):
         chat_id (str): the chat_id to be searched
     """
     try:
-        response = requests.get(f"{API_BASE}/watcher/{chat_id}")
+        response = requests.get(f"{DB_API_BASE}/watcher/{chat_id}")
         return response.json()
     except requests.ConnectionError:
         return None
