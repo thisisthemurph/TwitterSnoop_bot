@@ -11,5 +11,8 @@ TW_BEARER_TOKEN: str = os.getenv("TW_BEARER_TOKEN")
 TW_ACCESS_TOKEN: str = os.getenv("TW_ACCESS_TOKEN")
 TW_ACCESS_TOKEN_SECRET: str = os.getenv("TW_ACCESS_TOKEN_SECRET")
 
-TW_SLEEP_TIMEOUT_SECONDS: int = int(os.getenv("TW_SLEEP_TIMEOUT_SECONDS", default=None) or 60)
-TW_MAX_FETCH_COUNT: int = int(os.getenv("TW_MAX_FETCH_COUNT", default=None) or 10)
+TW_SLEEP_TIMEOUT_SECONDS: int = int(os.getenv("TW_SLEEP_TIMEOUT_SECONDS") or 60)
+TW_MAX_FETCH_COUNT: int = int(os.getenv("TW_MAX_FETCH_COUNT") or 10)
+
+DB_API_HOST: str = os.getenv("DB_API_HOST") or "127.0.0.1"
+DB_API_PORT: int = int(os.getenv("DB_API_PORT") or 5000)

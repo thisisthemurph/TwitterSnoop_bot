@@ -52,7 +52,7 @@ def get_chat_ids_for_handle(handle: str) -> List[str]:
     return []
 
 
-def send_new_tweets(updater, props: Properties):
+def send_new_tweets(updater, last_request: datetime, update_last_request_fn) -> None:
     """
     Determines if there are any new tweets and sends a message to the appropriate conversations
 
@@ -60,13 +60,13 @@ def send_new_tweets(updater, props: Properties):
         updater (telegram.ext.Updater): updater for sending messages using the Telegram API
         props (Properties): an object representing the properties of the bot
     """
-    from_date = props.last_request
-    props.update_last_request(datetime.utcnow())
+    # from_date = props.last_request
+    # props.update_last_request(datetime.utcnow())
+    update_last_request_fn(datetime.utcnow())
 
     handles = get_handles()
     for handle in handles:
-        tweet_urls = get_most_recent_tweet_urls(handle, from_date=from_date)
-        print(tweet_urls)
+        tweet_urls = get_most_recent_tweet_urls(handle, from_date=last_request)
 
         for url in tweet_urls:
             chat_ids = get_chat_ids_for_handle(handle)
@@ -79,7 +79,7 @@ def main():
     updater = Updater(TELEGRAM_TOKEN)
 
     while True:
-        send_new_tweets(updater, props)
+        send_new_tweets(updater, props.last_request, props.update_last_request)
         time.sleep(TW_SLEEP_TIMEOUT_SECONDS)
 
 

@@ -16,6 +16,12 @@ auth.set_access_token(TW_ACCESS_TOKEN, TW_ACCESS_TOKEN_SECRET)
 api = tw.API(auth, wait_on_rate_limit=True)
 
 
+def stndardise_datetime(ts: datetime) -> datetime:
+    """Ensures datetime timestamps are standardised for comparison, preventing issues comparing naive and aware datetimes"""
+    fmt: str = "%Y %d %m %H %M %S"
+    return datetime.strptime(ts.strftime(fmt), fmt)
+
+
 def get_most_recent_tweet_urls(handle: str, from_date: datetime) -> List[str]:
     """
     Returns a URL for the most recent tweets for the given handle from the given from_date
@@ -25,18 +31,23 @@ def get_most_recent_tweet_urls(handle: str, from_date: datetime) -> List[str]:
         from_date (datetime.datetime): tweets cannot be older than this date
 
     Returns:
-        A list of URLs associated with recent tweets
+        str: A list of URLs associated with recent tweets
     """
+    from_date = stndardise_datetime(from_date)
+
     try:
-        results = api.user_timeline(id=handle, count=TW_MAX_FETCH_COUNT)
+        results = api.user_timeline(screen_name=handle, count=TW_MAX_FETCH_COUNT)
     except tw.error.TweepError:
-        results = None
+        results = []
 
-    urls = []
-    if results:
-        for tweet in results:
-            print(f"{tweet.created_at} > {from_date} = {tweet.created_at > from_date}")
-            if tweet.created_at > from_date:
-                urls.append(f"https://twitter.com/{handle}/status/{tweet.id_str}")
+    # Ensure tweets are recent enough and return list of URL strings
+    tweets = filter(lambda tweet: stndardise_datetime(tweet.created_at) > from_date, results)
+    return [f"https://twitter.com/{handle}/status/{tweet.id_str}" for tweet in tweets]
 
-    return urls
+    # for tweet in results:
+    #     tweet_date = stndardise_datetime(tweet.created_at)
+
+    #     if tweet_date > from_date:
+    #         urls.append(f"https://twitter.com/{handle}/status/{tweet.id_str}")
+
+    # return urls
