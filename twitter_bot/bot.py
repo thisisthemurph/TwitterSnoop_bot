@@ -1,16 +1,17 @@
-from datetime import datetime
-from typing import List
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from telegram.error import BadRequest
 import time
+from typing import List
+from datetime import datetime
+from telegram.ext import Updater
+from telegram.error import BadRequest
 
-from db_api import fetch_handles, fetch_handle_watchers
-from twit import get_most_recent_tweet_urls
-from constants import TELEGRAM_TOKEN, TW_SLEEP_TIMEOUT_SECONDS
+from handle import Handle
 from properties import Properties
+from twit import get_most_recent_tweet_urls
+from api.db import get_all_handles, get_handle
+from constants import TELEGRAM_TOKEN, TW_SLEEP_TIMEOUT_SECONDS
 
 
-def send_message(updater: Updater, chat_id: str, message: str) -> None:
+def send_telegram_message(updater: Updater, chat_id: str, message: str) -> None:
     """
     Sends a message to the designated chat_id, nothing happens if the chat_id cannot be found
 
@@ -26,52 +27,34 @@ def send_message(updater: Updater, chat_id: str, message: str) -> None:
         return None
 
 
-def get_handles() -> List[str]:
-    """Returns a list of all handles from the database"""
-    result = fetch_handles()
-    if result and result["success"]:
-        return result["payload"]["handles"]
-
-    return []
-
-
-def get_chat_ids_for_handle(handle: str) -> List[str]:
+def dispatch_telegram_messages(updater, handle: Handle, tweet_urls) -> None:
     """
-    Returns a list of chat_ids that watch the given handle from the database
-
-    Parameters:
-        handle (str): the Twitter handle
-
-    Returns:
-        A list of chat_ids associated with the Twitter handle
-    """
-    result = fetch_handle_watchers(handle)
-    if result and result["success"]:
-        return result["payload"]["watcher_chat_ids"]
-
-    return []
-
-
-def send_new_tweets(updater, last_request: datetime, update_last_request_fn) -> None:
-    """
-    Determines if there are any new tweets and sends a message to the appropriate conversations
+    Dispatches given tweet_url messages to the appropriate chat_id.
 
     Parameters:
         updater (telegram.ext.Updater): updater for sending messages using the Telegram API
-        props (Properties): an object representing the properties of the bot
+        handle (Handle): a dict representing the handle
     """
-    # from_date = props.last_request
-    # props.update_last_request(datetime.utcnow())
-    update_last_request_fn(datetime.utcnow())
+    for url in tweet_urls:
+        for watcher in handle.watchers:
+            send_telegram_message(updater, watcher.chat_id, f"@{handle.name} has tweeted:\n\n{url}")
 
-    handles = get_handles()
-    for handle in handles:
-        tweet_urls = get_most_recent_tweet_urls(handle, from_date=last_request)
 
-        for url in tweet_urls:
-            chat_ids = get_chat_ids_for_handle(handle)
-            for chat_id in chat_ids:
-                send_message(updater, chat_id, f"@{handle} has tweeted:\n\n" + url)
+def process_tweets(updater, since: datetime) -> None:
+    """
+    Determines if there are any new tweets and dispatches the Telegram messages
+
+    Parameters:
+        updater (telegram.ext.Updater): updater for sending messages using the Telegram API
+        since (datetime.datetime): tweets cannot be older than this
+    """
+    stored_handles: List[str] = get_all_handles()
+    for handle_name in stored_handles:
+        handle: Handle = get_handle(handle_name)
+
+        if handle.has_watchers:
+            tweet_urls = get_most_recent_tweet_urls(handle.name, since)
+            dispatch_telegram_messages(updater, handle, tweet_urls)
 
 
 def main():
@@ -79,7 +62,8 @@ def main():
     updater = Updater(TELEGRAM_TOKEN)
 
     while True:
-        send_new_tweets(updater, props.last_request, props.update_last_request)
+        props.update_last_request(datetime.utcnow())
+        process_tweets(updater, since=props.last_request)
         time.sleep(TW_SLEEP_TIMEOUT_SECONDS)
 
 

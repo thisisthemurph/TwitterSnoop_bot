@@ -22,7 +22,7 @@ def stndardise_datetime(ts: datetime) -> datetime:
     return datetime.strptime(ts.strftime(fmt), fmt)
 
 
-def get_most_recent_tweet_urls(handle: str, from_date: datetime) -> List[str]:
+def get_most_recent_tweet_urls(handle: str, since: datetime) -> List[str]:
     """
     Returns a URL for the most recent tweets for the given handle from the given from_date
 
@@ -33,7 +33,7 @@ def get_most_recent_tweet_urls(handle: str, from_date: datetime) -> List[str]:
     Returns:
         str: A list of URLs associated with recent tweets
     """
-    from_date = stndardise_datetime(from_date)
+    since = stndardise_datetime(since)
 
     try:
         results = api.user_timeline(screen_name=handle, count=TW_MAX_FETCH_COUNT)
@@ -41,13 +41,5 @@ def get_most_recent_tweet_urls(handle: str, from_date: datetime) -> List[str]:
         results = []
 
     # Ensure tweets are recent enough and return list of URL strings
-    tweets = filter(lambda tweet: stndardise_datetime(tweet.created_at) > from_date, results)
+    tweets = filter(lambda tweet: stndardise_datetime(tweet.created_at) > since, results)
     return [f"https://twitter.com/{handle}/status/{tweet.id_str}" for tweet in tweets]
-
-    # for tweet in results:
-    #     tweet_date = stndardise_datetime(tweet.created_at)
-
-    #     if tweet_date > from_date:
-    #         urls.append(f"https://twitter.com/{handle}/status/{tweet.id_str}")
-
-    # return urls
