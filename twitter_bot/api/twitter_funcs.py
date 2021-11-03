@@ -1,13 +1,12 @@
-from typing import Union, List
 import tweepy as tw
 from datetime import datetime
+from typing import List
 
 from constants import (
     TW_ACCESS_TOKEN,
     TW_ACCESS_TOKEN_SECRET,
     TW_API_KEY,
     TW_API_KEY_SECRET,
-    TW_MAX_FETCH_COUNT,
 )
 
 
@@ -22,21 +21,22 @@ def stndardise_datetime(ts: datetime) -> datetime:
     return datetime.strptime(ts.strftime(fmt), fmt)
 
 
-def get_most_recent_tweet_urls(handle: str, since: datetime) -> List[str]:
+def get_most_recent_tweet_urls(handle: str, since: datetime, limit: int) -> List[str]:
     """
-    Returns a URL for the most recent tweets for the given handle from the given from_date
+    Returns a list of recent tweets; max fetched is limit and then filtered on since
 
     Parameters:
         handle (str): the Twitter handle to be searched for
-        from_date (datetime.datetime): tweets cannot be older than this date
+        since (datetime.datetime): the maximum age of tweets to be fetched
+        limit (int): the maximum number of tweets to be fetched prior to since filtering
 
     Returns:
-        str: A list of URLs associated with recent tweets
+        a list of URLs associated with recent tweets
     """
     since = stndardise_datetime(since)
 
     try:
-        results = api.user_timeline(screen_name=handle, count=TW_MAX_FETCH_COUNT)
+        results = api.user_timeline(screen_name=handle, count=limit)
     except tw.error.TweepError:
         results = []
 

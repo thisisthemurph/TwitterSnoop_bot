@@ -1,6 +1,9 @@
 from typing import List
 from datetime import datetime
 
+from api.twitter_funcs import get_most_recent_tweet_urls
+from constants import TW_MAX_FETCH_COUNT
+
 
 class Watcher:
     def __init__(self, id: int, chat_id: str, created_at: datetime, updated_at: datetime):
@@ -27,6 +30,19 @@ class Handle:
     def has_watchers(self) -> bool:
         """Returns True if the Handle has watchers, otherwise False"""
         return self.watchers
+
+    def recent_tweets(self, since: datetime, limit: int = TW_MAX_FETCH_COUNT):
+        """
+        Fetches the most recent tweets for the handle.
+
+        Parameters:
+            since (datetime): the maximum age of tweets to be fetched
+            limit (int): the maximim number of tweets to be fetched prior to since filtering
+
+        Returns:
+            a list of URLs associated with recent tweets
+        """
+        return get_most_recent_tweet_urls(self.name, since, limit)
 
 
 def handle_factory(handle: dict) -> Handle:

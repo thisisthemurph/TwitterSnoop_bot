@@ -1,15 +1,15 @@
 import requests
 from typing import List
-from handle import Handle, handle_factory
 
+from api.handle import Handle, handle_factory
 from constants import DB_API_HOST, DB_API_PORT
 
 
 base_url = f"http://{DB_API_HOST}:{DB_API_PORT}"
 
 
-def get_all_handles() -> List[str]:
-    """Returns a list of all handle strings."""
+def get_all_handle_names() -> List[str]:
+    """Returns a list of all handle name strings."""
     response = requests.get(f"{base_url}/handles").json()
 
     if response and response["success"]:
@@ -29,7 +29,7 @@ def get_handle(handle: str) -> Handle:
     elif response and not response["success"]:
         raise Exception(response["error"]["message"])
     else:
-        raise Exception("There has been an issue retrieving the handle")
+        raise Exception("There has been an issue retrieving the handle.")
 
 
 def get_watcher(chat_id: str) -> dict:
@@ -41,4 +41,4 @@ def get_watcher(chat_id: str) -> dict:
     elif response and not response["success"]:
         raise Exception(response["error"]["message"])
     else:
-        raise Exception("There has been an issue retrieving the watcher")
+        raise Exception("There has been an issue retrieving the watcher.")
