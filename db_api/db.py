@@ -194,7 +194,7 @@ def watcher_exists(chat_id: str) -> bool:
     return result is not None
 
 
-def add_handle(handle: str) -> None:
+def add_handle(handle: str) -> bool:
     """
     Add the given handle if it doesn't already exist.
 
