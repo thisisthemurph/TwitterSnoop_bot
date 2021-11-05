@@ -1,10 +1,11 @@
+import twit
+from typing import List
 from telegram import ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from typing import List
 
-import twit
 import db_api
 from constants import TELEGRAM_TOKEN
+from db_api import Watcher, WatcherNotFoundError
 
 
 updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
@@ -44,7 +45,7 @@ If you would like to use my features in your favourite group chats, simply add m
 
 
 def help(update, context):
-    """Display a standard help message"""
+    """Display a standard help message."""
     context.bot.send_message(
         chat_id=update.effective_chat.id, text=HELP_MESSAGE, parse_mode=ParseMode.MARKDOWN_V2
     )
@@ -52,131 +53,127 @@ def help(update, context):
 
 def watch(update, context):
     """
-    Watch a given Twitter handle
+    Watch a given Twitter handle.
 
     Command format:
         /watch @twitterhandle
         /watch @twitterhandle @somotherhandle
     """
-    handles: List[str] = sorted(list({h.lower().replace("@", "") for h in context.args}))
+    handles_to_watch: List[str] = sorted(list({h.lower().replace("@", "") for h in context.args}))
 
+    try:
+        watcher = db_api.get_watcher(update.effective_chat.id)
+    except WatcherNotFoundError:
+        watcher = None
     #
     # Do the background stuff
     #
 
-    # TODO: Determine if the handles are actual Twitter accounts
+    success_handles = []
+    failure_handles = []
+    for handle in handles_to_watch:
+        success: bool = watcher.watch(handle)
 
-    handle_success = {}
-    for handle in handles:
-        result = db_api.watch_handle(handle, update.effective_chat.id)
-        if result is None:
-            handle_success[handle] = False
+        if success:
+            success_handles.append(handle)
         else:
-            handle_success[handle] = True
+            failure_handles.append(handle)
 
     #
     # Build the reply message
     #
 
-    if len(handles) == 0:
-        message = f"Ensure your command follows the pattern:\n\n/watch @twitterhandle\n\nYou can also add multiple Twitter handles seperated by a space"
-    
-    elif len(handles) == 1:
-        if handle_success[handle]:
-            message = f"You are now snooping on @{handles[0]} 👀"
+    if len(handles_to_watch) == 0:
+        message = f"Ensure your command follows the pattern:\n\n/watch @twitterhandle\n\nYou can also add multiple Twitter handles seperated by a space."
+
+    elif len(handles_to_watch) == 1:
+        if success_handles:
+            message = f"You are now snooping on @{handles_to_watch[0]} 👀"
         else:
-            message = f"Something has gone wrong on our end, we can't seem to snoop on @{handles[0]} at the moment."
+            message = f"Something has gone wrong on our end, we can't seem to snoop on @{handles_to_watch[0]} at the moment."
 
     else:
-        success_handles = [handle for handle in handles if handle_success[handle]]
-        failure_handles = [handle for handle in handles if not handle_success[handle]]
-
         message = ""
         if success_handles:
             message += f"You are now snooping on the watching Twitter handles:\n\n"
-            message += "\n".join([f"- @{handle}" for handle in list(handles)])
+            message += "\n".join([f"- @{handle}" for handle in list(success_handles)])
+
         if failure_handles:
-            message += "\nWe've had some issues and we've been unable to watch the following handles:\n\n"
-            message += "\n".join([f"- @{handle}" for handle in list(handles)])
+            message += (
+                "\nWe've had some issues and we've been unable to watch the following handles:\n\n"
+            )
+            message += "\n".join([f"- @{handle}" for handle in list(failure_handles)])
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 
 def unwatch(update, context):
     """
-    Stop watching a given Twitter handle or all handles
+    Stop watching a given Twitter handle or all handles.
 
     Command format:
         /unwatch all
         /unwatch @twitterhandle
         /unwatch @twitterhandle @someotherhandle
     """
-    handles: List[str] = sorted(list({h.lower().replace("@", "") for h in context.args}))
+    handles_to_del: List[str] = sorted(list({h.lower().replace("@", "") for h in context.args}))
 
-    # TODO: Implement checking that the user is actually watching the handles
+    try:
+        watcher: Watcher = db_api.get_watcher(update.effective_chat.id)
+    except WatcherNotFoundError:
+        watcher = None
+
+    delete_all_handles: bool = len(handles_to_del) == 1 and handles_to_del[0] == "all"
+    if delete_all_handles:
+        handles_to_del = watcher.handles
 
     #
-    # Get the current chat's watched handles
+    # Unwatch the handles
     #
-        
-    if len(handles) == 0:
-        # No handles given to unfollow
-        message = f"Ensure your command follows the pattern:\n\n/unwatch @twitterhandle\n\nYou can also add multiple Twitter handles seperated by a space."
-    else:
-        handles_watched_response = db_api.fetch_watched_handles(update.effective_chat.id)
-        if handles_watched_response and handles_watched_response["success"]:
-            handles_watched = handles_watched_response["payload"]
+
+    unwatched_handles = []
+    errored_handles = []
+    for handle in handles_to_del:
+        if handle in watcher.handles:
+            watcher.unwatch(handle)
+            unwatched_handles.append(handle)
         else:
-            handles_watched = None
-            message = "There has been an issue determining your watch list, please try again later 😔"
+            errored_handles.append(handle)
 
-        if handles_watched is not None:
-            #
-            # Do the background stuff
-            #
+    #
+    # Build the reply message
+    #
 
-            handle_results = {}
-            for handle in handles:
-                if handle in handles_watched:
-                    db_api.delete_watch(handle, update.effective_chat.id)
-                    handle_results[handle] = True
-                else:
-                    handle_results[handle] = False
+    if not handles_to_del:
+        message = f"Ensure your command follows the pattern:\n\n/unwatch @twitterhandle\n\nYou can also add multiple Twitter handles seperated by a space."
+    elif delete_all_handles:
+        message = (
+            f"You have unwatched all Twitter handles 😥\n\nAdd some more using the /watch command!"
+        )
+    elif len(handles_to_del) == 1:
+        if unwatched_handles:
+            message = f"You are no longer snooping on @{handles_to_del[0]}"
+        else:
+            message = (
+                f"You aren't watching @{handles_to_del[0]}, are you sure you typed it correctly?"
+            )
+    else:
+        message = ""
+        if unwatched_handles:
+            message += "You are no longer snooping on the folloing Twitter handles:\n\n"
+            message += "\n".join([f"- {h}" for h in unwatched_handles])
 
-            #
-            # Build the reply message
-            #
-
-            dropped_handles = [f"- @{handle}" for handle, result in handle_results.items() if result]
-            error_handles = [f"- @{handle}" for handle, result in handle_results.items() if not result]
-
-            if len(handles) == 1 and handles[0] == "all":
-                # Request to drop all handles
-                message = f"You have unwatched all Twitter handles 😥\n\nAdd some more using the /watch command!"
-            elif len(handles) == 1:
-                # A single handle given to unfollow
-                if dropped_handles:
-                    message = f"You are no longer snooping on @{handles[0]}"
-                else:
-                    message = f"You aren't watching @{handles[0]}, are you sure you typed it correctly?"
-            else:
-                # Multiple handles to unfollow
-                message = ""
-                if dropped_handles:
-                    message += "You are no longer snooping on the folloing Twitter handles:\n\n"
-                    message += "\n".join(dropped_handles)
-
-                if error_handles:
-                    message += "\n\nYou are not watching the following handles:\n\n"
-                    message += "\n".join(error_handles)
-                    message += "\n\nAre you sure you typed them correctly?"
+        if errored_handles:
+            message += "\n\nYou were not watching the following handles:\n\n"
+            message += "\n".join([f"- {h}" for h in errored_handles])
+            message += "\n\nAre you sure you typed them correctly?"
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 
 def latest(update, context):
     """
-    Send a message with the latest tweet from a given Twitter handle
+    Send a message with the latest tweet from a given Twitter handle.
 
     Command format:
         /latest @twitterhandle
@@ -193,20 +190,23 @@ def latest(update, context):
 
 def watching(update, context):
     """Send a message detailing the Twitter handles being watched in the current chat"""
-    response = db_api.fetch_watched_handles(update.effective_chat.id)
+    try:
+        watcher: Watcher = db_api.get_watcher(update.effective_chat.id)
+    except WatcherNotFoundError:
+        watcher = None
 
-    if response and response["success"]:
-        handles = response["payload"]
-        if handles:
-            handle_list = "\n".join([f"- @{handle}" for handle in handles])
-            message = "You are watching the following Twitter handles:\n\n" + handle_list
-        else:
-            message = (
-                "You aren't watching any Twitter handles at the moment. "
-                "Use the /watch cmmand followed by a handle to see their tweets whenever they post."
-            )
+    # Build the reply message
+
+    if not watcher:
+        message = "There has been an issue retrieving your information 😬"
+    elif watcher.handles:
+        handle_list = "\n".join([f"- @{handle}" for handle in watcher.handles])
+        message = "You are watching the following Twitter handles:\n\n" + handle_list
     else:
-        message = "⛔ There has been an issue retrieving this information, please try again..."
+        message = (
+            "You aren't watching any Twitter handles at the moment. "
+            "Use the /watch cmmand followed by a handle to see their tweets whenever they post."
+        )
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
